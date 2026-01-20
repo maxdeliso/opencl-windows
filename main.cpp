@@ -176,6 +176,7 @@ int main(int argc, char** argv)
 
                 bPassed = RunGraphDfsDemo(cxGPUContext, devices, ciDeviceCount) && bPassed;
                 bPassed = RunGraphBatchDfsDemo(cxGPUContext, devices, ciDeviceCount) && bPassed;
+                bPassed = RunGraphWavefrontBfsDemo(cxGPUContext, devices, ciDeviceCount) && bPassed;
             }
         }
         else

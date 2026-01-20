@@ -9,10 +9,6 @@
       <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
       <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
     </Filter>
-    <Filter Include="inc\CL">
-      <UniqueIdentifier>{93995380-89BD-4b04-88AF-53BB4AE07CFD}</UniqueIdentifier>
-      <Extensions>h;hpp;hxx;hm;inl;inc;xsd</Extensions>
-    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="main.cpp" />
@@ -44,36 +40,6 @@
     </ClInclude>
     <ClInclude Include="inc\shrUtils.h">
       <Filter>inc</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\CL\cl.h">
-      <Filter>inc\CL</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\CL\cl_d3d10.h">
-      <Filter>inc\CL</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\CL\cl_d3d10_ext.h">
-      <Filter>inc\CL</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\CL\cl_d3d11_ext.h">
-      <Filter>inc\CL</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\CL\cl_d3d9_ext.h">
-      <Filter>inc\CL</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\CL\cl_ext.h">
-      <Filter>inc\CL</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\CL\cl_gl.h">
-      <Filter>inc\CL</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\CL\cl_gl_ext.h">
-      <Filter>inc\CL</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\CL\cl_platform.h">
-      <Filter>inc\CL</Filter>
-    </ClInclude>
-    <ClInclude Include="inc\CL\opencl.h">
-      <Filter>inc\CL</Filter>
     </ClInclude>
   </ItemGroup>
 </Project>
