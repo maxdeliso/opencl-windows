@@ -701,6 +701,7 @@ bool RunGraphWavefrontBfsDemo(cl_context context, const cl_device_id* devices, c
 
     shrLog(" Running CPU queue BFS...\n");
     auto cpuStart = std::chrono::high_resolution_clock::now();
+    // BFS distance (level) from source node; -1 means unreachable.
     std::vector<int> cpuLevels = BfsCpuLevels(graph, 0);
     auto cpuEnd = std::chrono::high_resolution_clock::now();
     double cpuMs = DurationMs(cpuStart, cpuEnd);
@@ -784,6 +785,7 @@ kernel void bfs_wavefront(global const int* offsets,
     const size_t edgesBytes = graph.edges.size() * sizeof(int);
     const size_t levelsBytes = static_cast<size_t>(graph.nodeCount) * sizeof(int);
 
+    // GPU levels mirror the BFS distance array for validation.
     std::vector<int> gpuLevels(static_cast<size_t>(graph.nodeCount), -1);
     gpuLevels[0] = 0;
 
