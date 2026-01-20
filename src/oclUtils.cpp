@@ -61,7 +61,9 @@ cl_int oclGetPlatformID(cl_platform_id* clSelectedPlatformID)
             ciErrNum = clGetPlatformIDs (num_platforms, clPlatformIDs, NULL);
             for(cl_uint i = 0; i < num_platforms; ++i)
             {
-                ciErrNum = clGetPlatformInfo (clPlatformIDs[i], CL_PLATFORM_NAME, 1024, &chBuffer, NULL);
+                chBuffer[0] = '\0'; // Ensure null termination
+                ciErrNum = clGetPlatformInfo (clPlatformIDs[i], CL_PLATFORM_NAME, sizeof(chBuffer) - 1, chBuffer, NULL);
+                chBuffer[sizeof(chBuffer) - 1] = '\0'; // Ensure null termination
                 if(ciErrNum == CL_SUCCESS)
                 {
                     if(strstr(chBuffer, "NVIDIA") != NULL)
@@ -123,7 +125,9 @@ void oclPrintDevInfo(int iLogMode, cl_device_id device)
     shrLogEx(iLogMode, 0, "  CL_DRIVER_VERSION: \t\t\t%s\n", device_string);
 
     // CL_DEVICE_VERSION
-    clGetDeviceInfo(device, CL_DEVICE_VERSION, sizeof(device_string), &device_string, NULL);
+    device_string[0] = '\0'; // Ensure null termination
+    clGetDeviceInfo(device, CL_DEVICE_VERSION, sizeof(device_string) - 1, device_string, NULL);
+    device_string[sizeof(device_string) - 1] = '\0'; // Ensure null termination
     shrLogEx(iLogMode, 0, "  CL_DEVICE_VERSION: \t\t\t%s\n", device_string);
 
 #if !defined(__APPLE__) && !defined(__MACOSX)
@@ -348,8 +352,10 @@ int oclGetDevCap(cl_device_id device)
     int iDevArch = -1;
 
     // Get device extensions, and if any then search for cl_nv_device_attribute_query
-    clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, sizeof(cDevString), &cDevString, NULL);
-    if (cDevString != 0)
+    cDevString[0] = '\0'; // Ensure null termination
+    clGetDeviceInfo(device, CL_DEVICE_EXTENSIONS, sizeof(cDevString) - 1, cDevString, NULL);
+    cDevString[sizeof(cDevString) - 1] = '\0'; // Ensure null termination
+    if (cDevString[0] != '\0')
     {
         std::string stdDevString;
         stdDevString = std::string(cDevString);
@@ -395,10 +401,14 @@ cl_device_id oclGetFirstDev(cl_context cxGPUContext)
     // get the list of GPU devices associated with context
     clGetContextInfo(cxGPUContext, CL_CONTEXT_DEVICES, 0, NULL, &szParmDataBytes);
     cdDevices = (cl_device_id*) malloc(szParmDataBytes);
+    if (cdDevices == NULL)
+    {
+        return NULL;
+    }
 
     clGetContextInfo(cxGPUContext, CL_CONTEXT_DEVICES, szParmDataBytes, cdDevices, NULL);
 
-    cl_device_id first = cdDevices[0];
+    cl_device_id first = (szParmDataBytes >= sizeof(cl_device_id)) ? cdDevices[0] : NULL;
     free(cdDevices);
 
     return first;
@@ -418,9 +428,25 @@ cl_device_id oclGetMaxFlopsDev(cl_context cxGPUContext)
     // get the list of GPU devices associated with context
     clGetContextInfo(cxGPUContext, CL_CONTEXT_DEVICES, 0, NULL, &szParmDataBytes);
     cdDevices = (cl_device_id*) malloc(szParmDataBytes);
+    if (cdDevices == NULL)
+    {
+        return NULL;
+    }
     size_t device_count = szParmDataBytes / sizeof(cl_device_id);
+    if (device_count == 0)
+    {
+        free(cdDevices);
+        return NULL;
+    }
 
     clGetContextInfo(cxGPUContext, CL_CONTEXT_DEVICES, szParmDataBytes, cdDevices, NULL);
+
+    // Ensure device_count calculation is correct and we have at least one device
+    if (device_count == 0 || szParmDataBytes < sizeof(cl_device_id))
+    {
+        free(cdDevices);
+        return NULL;
+    }
 
     cl_device_id max_flops_device = cdDevices[0];
     int max_flops = 0;
@@ -429,17 +455,26 @@ cl_device_id oclGetMaxFlopsDev(cl_context cxGPUContext)
 
     // CL_DEVICE_MAX_COMPUTE_UNITS
     cl_uint compute_units;
-    clGetDeviceInfo(cdDevices[current_device], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(compute_units), &compute_units, NULL);
+    if (current_device < device_count)
+    {
+        clGetDeviceInfo(cdDevices[current_device], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(compute_units), &compute_units, NULL);
 
-    // CL_DEVICE_MAX_CLOCK_FREQUENCY
-    cl_uint clock_frequency;
-    clGetDeviceInfo(cdDevices[current_device], CL_DEVICE_MAX_CLOCK_FREQUENCY, sizeof(clock_frequency), &clock_frequency, NULL);
+        // CL_DEVICE_MAX_CLOCK_FREQUENCY
+        cl_uint clock_frequency;
+        clGetDeviceInfo(cdDevices[current_device], CL_DEVICE_MAX_CLOCK_FREQUENCY, sizeof(clock_frequency), &clock_frequency, NULL);
 
-    max_flops = compute_units * clock_frequency;
-    ++current_device;
+        max_flops = compute_units * clock_frequency;
+        ++current_device;
+    }
 
     while( current_device < device_count )
     {
+        // Ensure we don't access beyond allocated buffer
+        if (current_device * sizeof(cl_device_id) >= szParmDataBytes)
+        {
+            break;
+        }
+
         // CL_DEVICE_MAX_COMPUTE_UNITS
         cl_uint device_compute_units;
         clGetDeviceInfo(cdDevices[current_device], CL_DEVICE_MAX_COMPUTE_UNITS, sizeof(device_compute_units), &device_compute_units, NULL);
@@ -492,12 +527,17 @@ char* oclLoadProgSource(const char* cFilename, const char* cPreamble, size_t* sz
 
     // allocate a buffer for the source code string and read it in
     char* cSourceString = (char *)malloc(szSourceLength + szPreambleLength + 1);
+    if (cSourceString == NULL)
+    {
+        fclose(pFileStream);
+        return NULL;
+    }
     memcpy(cSourceString, cPreamble, szPreambleLength);
     if (fread((cSourceString) + szPreambleLength, szSourceLength, 1, pFileStream) != 1)
     {
         fclose(pFileStream);
         free(cSourceString);
-        return 0;
+        return NULL;
     }
 
     // close the file and return the total length of the combined (preamble + source) string
@@ -531,6 +571,10 @@ cl_device_id oclGetDev(cl_context cxGPUContext, unsigned int nr)
     }
 
     cdDevices = (cl_device_id*) malloc(szParmDataBytes);
+    if (cdDevices == NULL)
+    {
+        return (cl_device_id)-1;
+    }
 
     clGetContextInfo(cxGPUContext, CL_CONTEXT_DEVICES, szParmDataBytes, cdDevices, NULL);
 
@@ -560,12 +604,35 @@ void oclGetProgBinary( cl_program cpProgram, cl_device_id cdDevice, char** binar
 
     // Grab the sizes of the binaries
     size_t* binary_sizes = (size_t*)malloc(num_devices * sizeof(size_t));
+    if (binary_sizes == NULL)
+    {
+        free(devices);
+        return;
+    }
     clGetProgramInfo(cpProgram, CL_PROGRAM_BINARY_SIZES, num_devices * sizeof(size_t), binary_sizes, NULL);
 
     // Now get the binaries
     char** ptx_code = (char**) malloc(num_devices * sizeof(char*));
+    if (ptx_code == NULL)
+    {
+        free(devices);
+        free(binary_sizes);
+        return;
+    }
     for( unsigned int i=0; i<num_devices; ++i) {
         ptx_code[i]= (char*)malloc(binary_sizes[i]);
+        if (ptx_code[i] == NULL)
+        {
+            // Cleanup on failure
+            for (unsigned int j = 0; j < i; ++j)
+            {
+                free(ptx_code[j]);
+            }
+            free(ptx_code);
+            free(devices);
+            free(binary_sizes);
+            return;
+        }
     }
     clGetProgramInfo(cpProgram, CL_PROGRAM_BINARIES, 0, ptx_code, NULL);
 
@@ -604,17 +671,44 @@ void oclLogPtx(cl_program cpProgram, cl_device_id cdDevice, const char* cPtxFile
 
     // Grab the device ids
     cl_device_id* devices = (cl_device_id*) malloc(num_devices * sizeof(cl_device_id));
+    if (devices == NULL)
+    {
+        return;
+    }
     clGetProgramInfo(cpProgram, CL_PROGRAM_DEVICES, num_devices * sizeof(cl_device_id), devices, 0);
 
     // Grab the sizes of the binaries
     size_t* binary_sizes = (size_t*)malloc(num_devices * sizeof(size_t));
+    if (binary_sizes == NULL)
+    {
+        free(devices);
+        return;
+    }
     clGetProgramInfo(cpProgram, CL_PROGRAM_BINARY_SIZES, num_devices * sizeof(size_t), binary_sizes, NULL);
 
     // Now get the binaries
     char** ptx_code = (char**)malloc(num_devices * sizeof(char*));
+    if (ptx_code == NULL)
+    {
+        free(devices);
+        free(binary_sizes);
+        return;
+    }
     for( unsigned int i=0; i<num_devices; ++i)
     {
         ptx_code[i] = (char*)malloc(binary_sizes[i]);
+        if (ptx_code[i] == NULL)
+        {
+            // Cleanup on failure
+            for (unsigned int j = 0; j < i; ++j)
+            {
+                free(ptx_code[j]);
+            }
+            free(ptx_code);
+            free(devices);
+            free(binary_sizes);
+            return;
+        }
     }
     clGetProgramInfo(cpProgram, CL_PROGRAM_BINARIES, 0, ptx_code, NULL);
 
@@ -626,22 +720,38 @@ void oclLogPtx(cl_program cpProgram, cl_device_id cdDevice, const char* cPtxFile
     }
 
     // If the index is associated, log the result
-    if(idx < num_devices)
+    if(idx < num_devices && binary_sizes != NULL && ptx_code != NULL)
     {
-
-        // if a separate filename is supplied, dump ptx there
-        if (NULL != cPtxFileName)
+        // Ensure we have valid pointers before accessing
+        if (ptx_code[idx] != NULL)
         {
-            shrLog("\nWriting ptx to separate file: %s ...\n\n", cPtxFileName);
-            FILE* pFileStream = NULL;
-            fopen_s(&pFileStream, cPtxFileName, "wb");
+            // Explicit bounds check: idx is guaranteed to be < num_devices from the outer if
+            // Use pointer arithmetic to help analyzer understand bounds
+            size_t* pBinarySize = binary_sizes + idx;
+            if (pBinarySize < binary_sizes + num_devices)
+            {
+                size_t binary_size = *pBinarySize;
 
-            fwrite(ptx_code[idx], binary_sizes[idx], 1, pFileStream);
-            fclose(pFileStream);
-        }
-        else // log to logfile and console if no ptx file specified
-        {
-           shrLog("\n%s\nProgram Binary:\n%s\n%s\n", HDASHLINE, ptx_code[idx], HDASHLINE);
+                // if a separate filename is supplied, dump ptx there
+                if (NULL != cPtxFileName)
+                {
+                    shrLog("\nWriting ptx to separate file: %s ...\n\n", cPtxFileName);
+                    FILE* pFileStream = NULL;
+                    if (fopen_s(&pFileStream, cPtxFileName, "wb") == 0 && pFileStream != NULL)
+                    {
+                        fwrite(ptx_code[idx], binary_size, 1, pFileStream);
+                        fclose(pFileStream);
+                    }
+                    else if (pFileStream != NULL)
+                    {
+                        fclose(pFileStream);
+                    }
+                }
+                else // log to logfile and console if no ptx file specified
+                {
+                   shrLog("\n%s\nProgram Binary:\n%s\n%s\n", HDASHLINE, ptx_code[idx], HDASHLINE);
+                }
+            }
         }
     }
 

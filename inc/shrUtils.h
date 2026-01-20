@@ -618,7 +618,7 @@ inline void __shrExitEX(int argc, const char** argv, int iExitCode)
 #endif
     {
         shrLogEx(LOGBOTH | CLOSELOG, 0, "\nPress <Enter> to Quit...\n");
-        getchar();
+        (void)getchar();
     }
     else
     {

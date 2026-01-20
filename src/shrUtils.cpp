@@ -111,7 +111,10 @@ void shrSetLogFileName (const char* cOverRideName)
         free(cLogFilePathAndName);
     }
     cLogFilePathAndName = (char*) malloc(strlen(cOverRideName) + 1);
-    strcpy_s(cLogFilePathAndName, strlen(cOverRideName) + 1, cOverRideName);
+    if (cLogFilePathAndName != NULL)
+    {
+        strcpy_s(cLogFilePathAndName, strlen(cOverRideName) + 1, cOverRideName);
+    }
     return;
 }
 
@@ -578,7 +581,10 @@ char* shrFindFilePath(const char* filename, const char* executable_path)
             // File found
             // returning an allocated array here for backwards compatibility reasons
             char* file_path = (char*) malloc(path.length() + 1);
-            strcpy_s(file_path, path.length() + 1, path.c_str());
+            if (file_path != NULL)
+            {
+                strcpy_s(file_path, path.length() + 1, path.c_str());
+            }
             return file_path;
         }
     }
@@ -1081,6 +1087,13 @@ shrBOOL shrLoadPPM4ub( const char* file, unsigned char** OutData,
             *OutData = (unsigned char*)malloc(sizeof(unsigned char) * size * 4);
         }
 
+        // Check if allocation succeeded
+        if (*OutData == NULL)
+        {
+            free(cLocalData);
+            return shrFALSE;
+        }
+
         // temp pointers for incrementing
         unsigned char* cTemp = cLocalData;
         unsigned char* cOutPtr = *OutData;
@@ -1120,6 +1133,10 @@ shrBOOL shrSavePPM4ub( const char* file, unsigned char *data,
     // strip 4th component
     int size = w * h;
     unsigned char *ndata = (unsigned char*) malloc( sizeof(unsigned char) * size*3);
+    if (ndata == NULL)
+    {
+        return shrFALSE;
+    }
     unsigned char *ptr = ndata;
     for(int i=0; i<size; i++) {
         *ptr++ = *data++;
@@ -1772,6 +1789,12 @@ unsigned char* shrLoadRawFile(const char* filename, size_t size)
         }
 
     unsigned char* data = (unsigned char*)malloc(size);
+    if (data == NULL)
+    {
+        fclose(fp);
+        shrLog(" Error allocating memory for file '%s' !!!\n", filename);
+        return 0;
+    }
     size_t read = fread(data, 1, size, fp);
     fclose(fp);
 

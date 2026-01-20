@@ -19,6 +19,7 @@
 #include <memory>
 #include <iostream>
 #include <cassert>
+#include <VersionHelpers.h>
 
 ////////////////////////////////////////////////////////////////////////////////
 // Program main
@@ -194,20 +195,11 @@ int main(int argc, char** argv)
     shrLog("\nSystem Info: \n\n");
 
     SYSTEM_INFO stProcInfo;         // processor info struct
-    OSVERSIONINFO stOSVerInfo;      // Win OS info struct
     SYSTEMTIME stLocalDateTime;     // local date / time struct
 
     // processor
     SecureZeroMemory(&stProcInfo, sizeof(SYSTEM_INFO));
     GetSystemInfo(&stProcInfo);
-
-    // OS
-    SecureZeroMemory(&stOSVerInfo, sizeof(OSVERSIONINFO));
-    stOSVerInfo.dwOSVersionInfoSize = sizeof(OSVERSIONINFO);
-    #pragma warning(push)
-    #pragma warning(disable: 4996)
-    GetVersionEx(&stOSVerInfo);
-    #pragma warning(pop)
 
     // date and time
     GetLocalTime(&stLocalDateTime);
@@ -217,11 +209,50 @@ int main(int argc, char** argv)
         stLocalDateTime.wHour, stLocalDateTime.wMinute, stLocalDateTime.wSecond,
         stLocalDateTime.wMonth, stLocalDateTime.wDay, stLocalDateTime.wYear);
 
+    // Get OS version info using VersionHelpers and RtlGetVersion
+    typedef NTSTATUS (WINAPI *RtlGetVersionPtr)(OSVERSIONINFOEXW*);
+    OSVERSIONINFOEXW osvi = {};
+    osvi.dwOSVersionInfoSize = sizeof(OSVERSIONINFOEXW);
+
+    HMODULE hMod = GetModuleHandleW(L"ntdll.dll");
+    DWORD dwMajorVersion = 0, dwMinorVersion = 0, dwBuildNumber = 0;
+    if (hMod)
+    {
+        RtlGetVersionPtr fxPtr = (RtlGetVersionPtr)GetProcAddress(hMod, "RtlGetVersion");
+        if (fxPtr != nullptr)
+        {
+            if (fxPtr(&osvi) == 0) // STATUS_SUCCESS = 0
+            {
+                dwMajorVersion = osvi.dwMajorVersion;
+                dwMinorVersion = osvi.dwMinorVersion;
+                dwBuildNumber = osvi.dwBuildNumber;
+            }
+        }
+    }
+
+    // Fallback: use IsWindows* macros to determine version if RtlGetVersion failed
+    if (dwMajorVersion == 0)
+    {
+        if (IsWindows10OrGreater()) { dwMajorVersion = 10; dwMinorVersion = 0; }
+        else if (IsWindows8Point1OrGreater()) { dwMajorVersion = 6; dwMinorVersion = 3; }
+        else if (IsWindows8OrGreater()) { dwMajorVersion = 6; dwMinorVersion = 2; }
+        else if (IsWindows7OrGreater()) { dwMajorVersion = 6; dwMinorVersion = 1; }
+        else if (IsWindowsVistaOrGreater()) { dwMajorVersion = 6; dwMinorVersion = 0; }
+        else { dwMajorVersion = 5; dwMinorVersion = 1; }
+    }
+
+    const char* osVersionStr = "";
+    if (IsWindows10OrGreater()) osVersionStr = "(Windows 10 or later)";
+    else if (IsWindows8Point1OrGreater()) osVersionStr = "(Windows 8.1 or later)";
+    else if (IsWindows8OrGreater()) osVersionStr = "(Windows 8 or later)";
+    else if (IsWindows7OrGreater()) osVersionStr = "(Windows 7 or later)";
+    else if (IsWindowsVistaOrGreater()) osVersionStr = "(Windows Vista or later)";
+    else osVersionStr = "(Windows XP or earlier)";
+
     // write proc and OS info to logs
     shrLog(" CPU Arch: %i\n CPU Level: %i\n # of CPU processors: %u\n Windows Build: %u\n Windows Ver: %u.%u %s\n\n\n",
         stProcInfo.wProcessorArchitecture, stProcInfo.wProcessorLevel, stProcInfo.dwNumberOfProcessors,
-        stOSVerInfo.dwBuildNumber, stOSVerInfo.dwMajorVersion, stOSVerInfo.dwMinorVersion,
-        (stOSVerInfo.dwMajorVersion >= 6)? "(Windows Vista / Windows 7)" : "");
+        dwBuildNumber, dwMajorVersion, dwMinorVersion, osVersionStr);
 
     // finish without countdown prompt
     const char* finishArgs[] = { argv[0], "noprompt" };

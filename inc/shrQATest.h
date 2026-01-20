@@ -159,7 +159,7 @@ inline void __shrQAFinish(int argc, const char **argv, int iStatus)
         if (!bNoPrompt) {
             fprintf(stdout, "\nPress <Enter> to exit...\n");
             fflush(stdout);
-            getchar();
+            (void)getchar();
         }
     }
 }
