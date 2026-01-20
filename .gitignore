@@ -1,0 +1,58 @@
+# Visual Studio files
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+.vscode/
+
+# Build results
+[Dd]ebug/
+[Rr]elease/
+[Dd]ebugPublic/
+[Rr]eleases/
+x64/
+x86/
+[Ww][Ii][Nn]32/
+[Aa][Rr][Mm]/
+[Aa][Rr][Mm]64/
+bld/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+
+# Visual Studio cache/options files
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# Visual Studio filter files (keep the main filters file)
+# *.vcxproj.filters
+
+# Log files
+*.log
+*.txt
+*.csv
+*.htm
+
+# Compiled files
+*.obj
+*.pdb
+*.ilk
+*.exp
+*.lib
+*.exe
+*.dll
+
+# vcpkg
+vcpkg_installed/
+.vcpkg-root
+
+# Intermediate files
+*.tlog
+*.lastbuildstate
+*.Build.CppClean.log
+*.recipe
+*.FileListAbsolute.txt
