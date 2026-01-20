@@ -512,7 +512,7 @@ char* oclLoadProgSource(const char* cFilename, const char* cPreamble, size_t* sz
     size_t szSourceLength;
 
     // open the OpenCL source code file
-    // Windows version
+    // Windows version - use binary mode to read raw bytes
     if(fopen_s(&pFileStream, cFilename, "rb") != 0)
     {
         return NULL;
@@ -525,6 +525,12 @@ char* oclLoadProgSource(const char* cFilename, const char* cPreamble, size_t* sz
     szSourceLength = ftell(pFileStream);
     fseek(pFileStream, 0, SEEK_SET);
 
+    if (szSourceLength == 0)
+    {
+        fclose(pFileStream);
+        return NULL;
+    }
+
     // allocate a buffer for the source code string and read it in
     char* cSourceString = (char *)malloc(szSourceLength + szPreambleLength + 1);
     if (cSourceString == NULL)
@@ -533,22 +539,129 @@ char* oclLoadProgSource(const char* cFilename, const char* cPreamble, size_t* sz
         return NULL;
     }
     memcpy(cSourceString, cPreamble, szPreambleLength);
-    if (fread((cSourceString) + szPreambleLength, szSourceLength, 1, pFileStream) != 1)
+
+    // Read the file content byte by byte to ensure we get all data
+    size_t bytesRead = fread((cSourceString) + szPreambleLength, 1, szSourceLength, pFileStream);
+    if (bytesRead != szSourceLength)
     {
-        fclose(pFileStream);
-        free(cSourceString);
-        return NULL;
+        // If we read less than expected, adjust the length
+        szSourceLength = bytesRead;
     }
 
-    // close the file and return the total length of the combined (preamble + source) string
+    // close the file
     fclose(pFileStream);
+
+    // Null terminate the string
+    cSourceString[szPreambleLength + szSourceLength] = '\0';
+
+    // Return the final length
     if(szFinalLength != 0)
     {
         *szFinalLength = szSourceLength + szPreambleLength;
     }
-    cSourceString[szSourceLength + szPreambleLength] = '\0';
 
     return cSourceString;
+}
+
+//////////////////////////////////////////////////////////////////////////////
+//! Loads and builds an OpenCL program from a .cl file
+//!
+//! @return the program if succeeded, NULL otherwise
+//! @param context          OpenCL context
+//! @param device           OpenCL device
+//! @param cFilename        kernel filename (.cl file)
+//! @param buildOptions     build options string (can be NULL or empty)
+//! @param err              returned error code
+//////////////////////////////////////////////////////////////////////////////
+cl_program oclLoadProgramFromFile(cl_context context, cl_device_id device, const char* cFilename, const char* buildOptions, cl_int* err)
+{
+    cl_program program = NULL;
+    char* programSource = NULL;
+    size_t programLength = 0;
+
+    // Find the file path
+    char* filePath = shrFindFilePath(cFilename, NULL);
+    if (filePath == NULL)
+    {
+        shrLog(" Error: Could not find kernel file: %s\n", cFilename);
+        if (err != NULL)
+        {
+            *err = CL_INVALID_VALUE;
+        }
+        return NULL;
+    }
+
+    shrLog(" Loading kernel from: %s\n", filePath);
+
+    // Load the program source
+    programSource = oclLoadProgSource(filePath, "", &programLength);
+    free(filePath);
+
+    if (programSource == NULL)
+    {
+        shrLog(" Error: Could not load kernel file: %s\n", cFilename);
+        if (err != NULL)
+        {
+            *err = CL_INVALID_VALUE;
+        }
+        return NULL;
+    }
+
+    if (programLength == 0)
+    {
+        shrLog(" Error: Kernel file is empty: %s\n", cFilename);
+        free(programSource);
+        if (err != NULL)
+        {
+            *err = CL_INVALID_VALUE;
+        }
+        return NULL;
+    }
+
+    shrLog(" Loaded kernel file, length: %u bytes\n", (unsigned int)programLength);
+
+    // Create program from source
+    // Since programSource is null-terminated, we can pass NULL for lengths
+    // and OpenCL will use strlen to determine the length
+    const char* sourceList[] = { programSource };
+    cl_int ciErrNum = CL_SUCCESS;
+    program = clCreateProgramWithSource(context, 1, sourceList, NULL, &ciErrNum);
+    if (ciErrNum != CL_SUCCESS)
+    {
+        shrLog(" Error %i creating OpenCL program from file: %s\n", ciErrNum, cFilename);
+        free(programSource);
+        if (err != NULL)
+        {
+            *err = ciErrNum;
+        }
+        return NULL;
+    }
+
+    // Build the program
+    const char* options = (buildOptions != NULL && strlen(buildOptions) > 0) ? buildOptions : "";
+    ciErrNum = clBuildProgram(program, 1, &device, options, NULL, NULL);
+    if (ciErrNum != CL_SUCCESS)
+    {
+        shrLog(" Error %i building OpenCL program from file: %s\n", ciErrNum, cFilename);
+        oclLogBuildInfo(program, device);
+        clReleaseProgram(program);
+        free(programSource);
+        if (err != NULL)
+        {
+            *err = ciErrNum;
+        }
+        return NULL;
+    }
+
+    // Clean up source string
+    free(programSource);
+
+    if (err != NULL)
+    {
+        *err = CL_SUCCESS;
+    }
+
+    return program;
 }
 
 //////////////////////////////////////////////////////////////////////////////

@@ -127,6 +127,18 @@ extern "C" cl_device_id oclGetMaxFlopsDev(cl_context cxGPUContext);
 extern "C" char* oclLoadProgSource(const char* cFilename, const char* cPreamble, size_t* szFinalLength);
 
 //////////////////////////////////////////////////////////////////////////////
+//! Loads and builds an OpenCL program from a .cl file
+//!
+//! @return the program if succeeded, NULL otherwise
+//! @param context          OpenCL context
+//! @param device           OpenCL device
+//! @param cFilename        kernel filename (.cl file)
+//! @param buildOptions     build options string (can be NULL or empty)
+//! @param err              returned error code
+//////////////////////////////////////////////////////////////////////////////
+extern "C" cl_program oclLoadProgramFromFile(cl_context context, cl_device_id device, const char* cFilename, const char* buildOptions, cl_int* err);
+
+//////////////////////////////////////////////////////////////////////////////
 //! Get the binary (PTX) of the program associated with the device
 //!
 //! @param cpProgram    OpenCL program

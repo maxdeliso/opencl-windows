@@ -178,57 +178,11 @@ bool RunGraphDfsDemo(cl_context context, const cl_device_id* devices, cl_uint de
         return false;
     }
 
-    const char* programSource = R"CLC(
-kernel void dfs_single(global const int* offsets,
-                       global const int* edges,
-                       int nodeCount,
-                       global int* outOrder,
-                       global int* outCount,
-                       global int* stack,
-                       global char* visited)
-{
-    int sp = 0;
-    int outIdx = 0;
-    visited[0] = 1;
-    stack[sp++] = 0;
-
-    while (sp > 0)
+    // Load and build program from .cl file
+    cl_program program = oclLoadProgramFromFile(context, device, "kernels/dfs_single.cl", "", &err);
+    if (program == NULL || err != CL_SUCCESS)
     {
-        int node = stack[--sp];
-        outOrder[outIdx++] = node;
-
-        int edgeStart = offsets[node];
-        int edgeEnd = offsets[node + 1];
-        for (int edge = edgeEnd - 1; edge >= edgeStart; --edge)
-        {
-            int neighbor = edges[edge];
-            if (!visited[neighbor])
-            {
-                visited[neighbor] = 1;
-                stack[sp++] = neighbor;
-            }
-        }
-    }
-
-    outCount[0] = outIdx;
-}
-)CLC";
-    size_t programLength = std::strlen(programSource);
-    const char* sourceList[] = { programSource };
-    cl_program program = clCreateProgramWithSource(context, 1, sourceList, &programLength, &err);
-    if (err != CL_SUCCESS)
-    {
-        shrLog(" Error %i creating OpenCL program.\n", err);
-        clReleaseCommandQueue(queue);
-        return false;
-    }
-
-    err = clBuildProgram(program, 1, &device, "", NULL, NULL);
-    if (err != CL_SUCCESS)
-    {
-        shrLog(" Error %i building OpenCL program.\n", err);
-        oclLogBuildInfo(program, device);
-        clReleaseProgram(program);
+        shrLog(" Error loading or building OpenCL program from dfs_single.cl\n");
         clReleaseCommandQueue(queue);
         return false;
     }
@@ -522,64 +476,11 @@ bool RunGraphBatchDfsDemo(cl_context context, const cl_device_id* devices, cl_ui
         return false;
     }
 
-    const char* programSource = R"CLC(
-#define NODES 32
-#define MAX_STACK 32
-kernel void batch_dfs(global const int* adj_matrices,
-                      global int* results)
-{
-    int graphId = get_global_id(0);
-    int offset = graphId * NODES * NODES;
-
-    int stack[MAX_STACK];
-    int stackTop = 0;
-    stack[0] = 0;
-
-    unsigned int visited = 1u;
-    int count = 0;
-
-    while (stackTop >= 0)
+    // Load and build program from .cl file
+    cl_program program = oclLoadProgramFromFile(context, device, "kernels/batch_dfs.cl", "", &err);
+    if (program == NULL || err != CL_SUCCESS)
     {
-        int current = stack[stackTop--];
-        ++count;
-
-        int rowStart = offset + current * NODES;
-        for (int node = 0; node < NODES; ++node)
-        {
-            if (adj_matrices[rowStart + node] == 1)
-            {
-                if (((visited >> node) & 1u) == 0)
-                {
-                    if (stackTop < MAX_STACK - 1)
-                    {
-                        visited |= (1u << node);
-                        stack[++stackTop] = node;
-                    }
-                }
-            }
-        }
-    }
-
-    results[graphId] = count;
-}
-)CLC";
-
-    size_t programLength = std::strlen(programSource);
-    const char* sourceList[] = { programSource };
-    cl_program program = clCreateProgramWithSource(context, 1, sourceList, &programLength, &err);
-    if (err != CL_SUCCESS)
-    {
-        shrLog(" Error %i creating OpenCL program.\n", err);
-        clReleaseCommandQueue(queue);
-        return false;
-    }
-
-    err = clBuildProgram(program, 1, &device, "", NULL, NULL);
-    if (err != CL_SUCCESS)
-    {
-        shrLog(" Error %i building OpenCL program.\n", err);
-        oclLogBuildInfo(program, device);
-        clReleaseProgram(program);
+        shrLog(" Error loading or building OpenCL program from batch_dfs.cl\n");
         clReleaseCommandQueue(queue);
         return false;
     }
@@ -721,53 +622,11 @@ bool RunGraphWavefrontBfsDemo(cl_context context, const cl_device_id* devices, c
         return false;
     }
 
-    const char* programSource = R"CLC(
-kernel void bfs_wavefront(global const int* offsets,
-                          global const int* edges,
-                          global int* levels,
-                          global int* frontierActive,
-                          int currentLevel,
-                          int nodeCount)
-{
-    int tid = get_global_id(0);
-    if (tid >= nodeCount)
+    // Load and build program from .cl file
+    cl_program program = oclLoadProgramFromFile(context, device, "kernels/bfs_wavefront.cl", "", &err);
+    if (program == NULL || err != CL_SUCCESS)
     {
-        return;
-    }
-
-    if (levels[tid] == currentLevel)
-    {
-        int edgeStart = offsets[tid];
-        int edgeEnd = offsets[tid + 1];
-        for (int edge = edgeStart; edge < edgeEnd; ++edge)
-        {
-            int neighbor = edges[edge];
-            int oldVal = atomic_cmpxchg(&levels[neighbor], -1, currentLevel + 1);
-            if (oldVal == -1)
-            {
-                *frontierActive = 1;
-            }
-        }
-    }
-}
-)CLC";
-
-    size_t programLength = std::strlen(programSource);
-    const char* sourceList[] = { programSource };
-    cl_program program = clCreateProgramWithSource(context, 1, sourceList, &programLength, &err);
-    if (err != CL_SUCCESS)
-    {
-        shrLog(" Error %i creating OpenCL program.\n", err);
-        clReleaseCommandQueue(queue);
-        return false;
-    }
-
-    err = clBuildProgram(program, 1, &device, "", NULL, NULL);
-    if (err != CL_SUCCESS)
-    {
-        shrLog(" Error %i building OpenCL program.\n", err);
-        oclLogBuildInfo(program, device);
-        clReleaseProgram(program);
+        shrLog(" Error loading or building OpenCL program from bfs_wavefront.cl\n");
         clReleaseCommandQueue(queue);
         return false;
     }
