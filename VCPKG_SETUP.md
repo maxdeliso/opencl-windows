@@ -71,7 +71,7 @@ This will:
 After setup, you can build normally in Visual Studio:
 
 1. Open `main.sln` in Visual Studio
-2. Build the project (F7 or Build → Build Solution)
+2. Build the project
 3. vcpkg dependencies will be automatically resolved
 
 ## Troubleshooting
